@@ -5,7 +5,7 @@ define('DB_NAME', 'olimpiadas');
 define('DB_USER', 'root');
 define('DB_PASS', '');          
 
-define('BASE_URL', '/servicio/olimpiadas');
+define('BASE_URL', '/olimpiadas');
 
 define('APP_NAME', 'Olimpiadas Virtuales Corporativas');
 define('APP_ORG',  'Horizonte Abierto');
