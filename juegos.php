@@ -125,12 +125,25 @@ require __DIR__ . '/includes/header.php';
                 if (sel && sel.value === respuestasCorrectas[p]) aciertos++;
                 else errores++;
             }
+            let puntosObtenidos = aciertos * 15;
+
             document.getElementById('cant-aciertos').innerText = aciertos;
             document.getElementById('cant-errores').innerText = errores;
-            document.getElementById('cant-puntos').innerText = `${aciertos * 15} / 120 pts`;
+            document.getElementById('cant-puntos').innerText = `${puntosObtenidos} / 120 pts`;
+            
             const box = document.getElementById('resultado-mentes');
             box.style.display = 'block';
             box.scrollIntoView({ behavior: 'smooth' });
+
+            const formData = new FormData();
+            formData.append('reto_slug', 'mentes-brillantes');
+            formData.append('aciertos', aciertos);
+            formData.append('errores', errores);
+            formData.append('puntos', puntosObtenidos);
+            formData.append('equipo_id', 1);
+
+            fetch('guardar_resultado.php', { method: 'POST', body: formData })
+            .then(res => res.json()).then(data => console.log('Guardado:', data));
         }
         </script>
       <?php endif; ?>
@@ -150,13 +163,15 @@ require __DIR__ . '/includes/header.php';
     <div class="grid g3" style="margin-top: 20px;">
       <?php foreach (retos_all() as $r): ?>
         <?php 
-            // Direccionar cada reto a su archivo independiente correspondiente
+            // Enrutamiento modular para cada archivo independiente de los 5 retos
             if ($r['slug'] === 'memoria-extrema') {
                 $enlaceReto = url('memoria.php');
             } elseif ($r['slug'] === 'codigo-secreto') {
                 $enlaceReto = url('codigo.php');
             } elseif ($r['slug'] === 'creatividad-sin-limites') {
                 $enlaceReto = url('creatividad.php');
+            } elseif ($r['slug'] === 'desafio-relampago') {
+                $enlaceReto = url('desafio.php');
             } else {
                 $enlaceReto = url('reto.php?r=' . e($r['slug']));
             }
