@@ -16,7 +16,8 @@ function db(): PDO {
         } catch (PDOException $e) {
             http_response_code(500);
             exit('<h2 style="font-family:sans-serif">No se pudo conectar a la base de datos.</h2>'
-               . '<p style="font-family:sans-serif">Verifica que MySQL esté activo ');
+               . '<p style="font-family:sans-serif">Verifica que MySQL esté activo en XAMPP, que hayas importado '
+               . '<code>database.sql</code> y los datos de <code>config.php</code>.</p>');
         }
     }
     return $pdo;

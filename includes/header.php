@@ -1,5 +1,5 @@
 <?php
-
+// Variables esperadas: $titulo (string), $pagina (string), opcional $bodyClass
 $titulo = $titulo ?? APP_NAME;
 $pagina = $pagina ?? '';
 $admin  = admin_actual();
@@ -12,7 +12,7 @@ $es_admin_dir = str_contains($_SERVER['SCRIPT_NAME'], '/admin/');
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($titulo) ?> · <?= e(APP_NAME) ?></title>
-<link rel="stylesheet" href="<?= url('assets/css/style.css') ?>">
+<link rel="stylesheet" href="<?= url('assets/css/style.css?v=' . time()) ?>">
 </head>
 <body class="<?= e($bodyClass ?? '') ?>">
 <a class="skip" href="#contenido">Saltar al contenido</a>
