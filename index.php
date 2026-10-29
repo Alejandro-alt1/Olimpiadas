@@ -2,6 +2,7 @@
 require __DIR__ . '/includes/bootstrap.php';
 $titulo = 'Inicio'; $pagina = 'inicio';
 $retos = retos_all();
+$top = config_get('marcador_visible', '1') === '1' || admin_actual() ? array_slice(ranking(), 0, 3) : [];
 $totalPts = puntos_max_total();
 $nEquipos = (int)db()->query('SELECT COUNT(*) FROM equipos WHERE activo=1')->fetchColumn();
 require __DIR__ . '/includes/header.php';
