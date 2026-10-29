@@ -140,7 +140,6 @@ function estado_texto(string $e): string {
 }
 function medalla(int $pos): string { return [1 => '🥇', 2 => '🥈', 3 => '🥉'][$pos] ?? (string)$pos; }
 
-/* ================= FASE 2: utilidades de los retos ================= */
 /** Un reto acepta respuestas solo si está en curso y no se agotó su tiempo total. */
 function reto_activo(array $r): bool {
     if ($r['estado'] !== 'abierto') return false;
@@ -156,7 +155,7 @@ function norm_texto(string $s): string {
     $s = preg_replace('/^(el|la|los|las|un|una)\s+/', '', $s);
     return trim($s);
 }
-/** Recalcula en el SERVIDOR los puntos de un equipo en un reto a partir de sus respuestas. */
+/** Recalcula en el servidor los puntos de un equipo en un reto a partir de sus respuestas. */
 function recalcular_puntos(int $equipo, int $reto): void {
     $pdo = db();
     if ($reto === 3) {

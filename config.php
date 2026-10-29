@@ -3,9 +3,8 @@
 define('DB_HOST', '172.17.99.231');
 define('DB_NAME', 'olimpiadas');
 define('DB_USER', 'olimpiadas');
-define('DB_PASS', '123');            // XAMPP por defecto: sin contraseña
+define('DB_PASS', '123');            
 
-// Carpeta del proyecto dentro de htdocs (sin barra final). Si lo pones en la raíz, deja ''.
 define('BASE_URL', '/olimpiadas3');
 
 define('APP_NAME', 'Olimpiadas Virtuales Corporativas');
