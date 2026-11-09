@@ -12,7 +12,7 @@ $es_admin_dir = str_contains($_SERVER['SCRIPT_NAME'], '/admin/');
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($titulo) ?> · <?= e(APP_NAME) ?></title>
-<link rel="stylesheet" href="<?= url('assets/css/style.css?v=' . time()) ?>">
+<link rel="stylesheet" href="<?= url('assets/css/style.css') ?>">
 </head>
 <body class="<?= e($bodyClass ?? '') ?>">
 <a class="skip" href="#contenido">Saltar al contenido</a>
@@ -27,6 +27,7 @@ $es_admin_dir = str_contains($_SERVER['SCRIPT_NAME'], '/admin/');
       <a href="<?= url('index.php') ?>" class="<?= $pagina === 'inicio' ? 'on' : '' ?>">Inicio</a>
       <a href="<?= url('retos.php') ?>" class="<?= $pagina === 'retos' ? 'on' : '' ?>">Retos</a>
       <a href="<?= url('marcador.php') ?>" class="<?= $pagina === 'marcador' ? 'on' : '' ?>">Marcador</a>
+      <?php if (torneo_activo()): ?><a href="<?= url('torneo.php') ?>" class="<?= $pagina === 'torneo' ? 'on' : '' ?>">🏆 Torneo</a><?php endif; ?>
       <a href="<?= url('reglas.php') ?>" class="<?= $pagina === 'reglas' ? 'on' : '' ?>">Reglas</a>
       <?php if ($admin): ?>
         <a href="<?= url('admin/index.php') ?>" class="<?= $es_admin_dir ? 'on' : '' ?>">Panel facilitador</a>
@@ -37,7 +38,7 @@ $es_admin_dir = str_contains($_SERVER['SCRIPT_NAME'], '/admin/');
         <span class="chip chip-gold">🎙 <?= e($admin['nombre']) ?></span>
         <a class="btn btn-ghost btn-sm" href="<?= url('logout.php') ?>">Salir</a>
       <?php elseif ($equipo): ?>
-        <a class="chip" style="--c:<?= e($equipo['color']) ?>" href="<?= url('equipo.php') ?>"><i class="dot"></i><?= e($equipo['nombre']) ?></a>
+        <a class="chip" style="--c:<?= e($equipo['color']) ?>" href="<?= url('equipo.php') ?>"><i class="dot"></i><?= e($equipo['nombre']) ?> · <?= e(participante_actual()['alias'] ?? '') ?></a>
         <a class="btn btn-ghost btn-sm" href="<?= url('logout.php') ?>">Salir</a>
       <?php else: ?>
         <a class="btn btn-primary btn-sm" href="<?= url('login.php') ?>">Ingresar</a>

@@ -13,18 +13,45 @@ if (is_post()) {
         redirect('login.php?rol=' . $rol);
     }
 
-    if ($accion === 'equipo') {
-        $s = db()->prepare('SELECT * FROM equipos WHERE id = ? AND activo = 1');
-        $s->execute([(int)($_POST['equipo_id'] ?? 0)]);
-        $eq = $s->fetch();
-        if ($eq && hash_equals($eq['pin'], trim($_POST['pin'] ?? ''))) {
-            session_regenerate_id(true);
-            unset($_SESSION['admin']);
-            $_SESSION['equipo_id'] = (int)$eq['id'];
-            $_SESSION['login_fallos'] = 0;
-            redirect('equipo.php');
+    /* ---- Participante: código del equipo + alias (sin capitán) ---- */
+    if ($accion === 'participante') {
+        $alias = trim(preg_replace('/\s+/u', ' ', $_POST['alias'] ?? ''));
+        $eqId = (int)($_POST['equipo_id'] ?? 0);
+        $back = 'login.php?e=' . $eqId;
+        if (!preg_match('/^[\p{L}\p{N} ._-]{2,30}$/u', $alias)) {
+            flash('Tu alias debe tener de 2 a 30 caracteres (letras, números, espacios, punto, guion).', 'err'); redirect($back);
         }
-        login_fallo(); flash('Equipo o código incorrecto.', 'err'); redirect('login.php');
+        $s = db()->prepare('SELECT * FROM equipos WHERE id = ? AND activo = 1');
+        $s->execute([$eqId]);
+        $eq = $s->fetch();
+        if (!$eq || !hash_equals((string)$eq['pin'], trim($_POST['pin'] ?? ''))) {
+            login_fallo(); flash('Equipo o código incorrecto.', 'err'); redirect($back);
+        }
+
+        $s = db()->prepare('SELECT *, (last_seen >= NOW() - INTERVAL 20 SECOND) AS activo FROM participantes WHERE equipo_id = ? AND alias = ?');
+        $s->execute([$eq['id'], $alias]);
+        $ex = $s->fetch();
+        $token = bin2hex(random_bytes(32));
+        if ($ex) {
+            $mismo = (int)($_SESSION['participante_id'] ?? 0) === (int)$ex['id'];
+            if (!$mismo && $ex['activo']) { flash('Ese alias ya está conectado en tu equipo. Elige otro (por ejemplo, agrega tu inicial).', 'err'); redirect($back); }
+            db()->prepare('UPDATE participantes SET token = ?, last_seen = NOW() WHERE id = ?')->execute([$token, $ex['id']]);   // reconexión
+            $pid = (int)$ex['id'];
+        } else {
+            $c = db()->prepare('SELECT COUNT(*) FROM participantes WHERE equipo_id = ?'); $c->execute([$eq['id']]);
+            if ((int)$c->fetchColumn() >= MAX_PARTICIPANTES_EQUIPO) { flash('Ese equipo ya está completo. Avisa al facilitador.', 'err'); redirect($back); }
+            try {
+                db()->prepare('INSERT INTO participantes (equipo_id, alias, token, last_seen) VALUES (?,?,?,NOW())')->execute([$eq['id'], $alias, $token]);
+                $pid = (int)db()->lastInsertId();
+                recalcular_equipo((int)$eq['id']);   // el promedio se reparte entre más personas
+            } catch (PDOException $e) { flash('Ese alias ya está en uso en tu equipo.', 'err'); redirect($back); }
+        }
+        session_regenerate_id(true);
+        unset($_SESSION['admin']);
+        $_SESSION['participante_id'] = $pid;
+        $_SESSION['participante_token'] = $token;
+        $_SESSION['login_fallos'] = 0;
+        redirect('retos.php');
     }
 
     if ($accion === 'facilitador') {
@@ -33,7 +60,7 @@ if (is_post()) {
         $u = $s->fetch();
         if ($u && password_verify($_POST['password'] ?? '', $u['password_hash'])) {
             session_regenerate_id(true);
-            unset($_SESSION['equipo_id']);
+            unset($_SESSION['participante_id'], $_SESSION['participante_token']);
             $_SESSION['admin'] = ['id' => (int)$u['id'], 'usuario' => $u['usuario'], 'nombre' => $u['nombre']];
             $_SESSION['login_fallos'] = 0;
             redirect('admin/index.php');
@@ -41,12 +68,10 @@ if (is_post()) {
         login_fallo(); flash('Usuario o contraseña incorrectos.', 'err'); redirect('login.php?rol=facilitador');
     }
 
-    // Primera configuración: solo si todavía no existe ningún facilitador
     if ($accion === 'crear_admin' && !$hayAdmins) {
         $usuario = trim($_POST['usuario'] ?? ''); $nombre = trim($_POST['nombre'] ?? ''); $pass = $_POST['password'] ?? '';
         if ($usuario === '' || $nombre === '' || strlen($pass) < 8) {
-            flash('Completa los campos. La contraseña debe tener al menos 8 caracteres.', 'err');
-            redirect('login.php?rol=facilitador');
+            flash('Completa los campos. La contraseña debe tener al menos 8 caracteres.', 'err'); redirect('login.php?rol=facilitador');
         }
         db()->prepare('INSERT INTO usuarios (usuario, nombre, password_hash) VALUES (?,?,?)')
             ->execute([$usuario, $nombre, password_hash($pass, PASSWORD_DEFAULT)]);
@@ -56,32 +81,34 @@ if (is_post()) {
 }
 
 $equipos = db()->query('SELECT id, nombre, color FROM equipos WHERE activo = 1 ORDER BY id')->fetchAll();
+$preE = (int)($_GET['e'] ?? 0);
+$preC = preg_replace('/\D/', '', $_GET['c'] ?? '');
 $titulo = 'Ingresar'; $pagina = 'login';
 require __DIR__ . '/includes/header.php';
 ?>
 <div class="login-box">
   <div class="page-head center"><div class="eyebrow">Acceso</div><h1 style="font-size:2rem">Ingresar a la plataforma</h1></div>
   <div class="tabs" role="tablist">
-    <a href="<?= url('login.php') ?>" class="<?= $rol === 'equipo' ? 'on' : '' ?>">👥 Capitán de equipo</a>
+    <a href="<?= url('login.php') ?>" class="<?= $rol === 'equipo' ? 'on' : '' ?>">👥 Participante</a>
     <a href="<?= url('login.php?rol=facilitador') ?>" class="<?= $rol === 'facilitador' ? 'on' : '' ?>">🎙 Facilitador</a>
   </div>
   <div class="card">
-  <?php if ($espera): ?>
-    <div class="alert alert-err">Demasiados intentos. Espera <?= $espera ?> s e inténtalo de nuevo.</div>
-  <?php endif; ?>
+  <?php if ($espera): ?><div class="alert alert-err">Demasiados intentos. Espera <?= $espera ?> s e inténtalo de nuevo.</div><?php endif; ?>
 
   <?php if ($rol === 'equipo'): ?>
     <form method="post" autocomplete="off">
-      <?= csrf_field() ?><input type="hidden" name="accion" value="equipo">
-      <div class="field"><label for="equipo_id">Equipo</label>
+      <?= csrf_field() ?><input type="hidden" name="accion" value="participante">
+      <div class="field"><label for="equipo_id">Tu equipo</label>
         <select id="equipo_id" name="equipo_id" required>
           <option value="">Selecciona tu equipo…</option>
-          <?php foreach ($equipos as $e): ?><option value="<?= (int)$e['id'] ?>"><?= e($e['nombre']) ?></option><?php endforeach; ?>
+          <?php foreach ($equipos as $e): ?><option value="<?= (int)$e['id'] ?>" <?= $preE === (int)$e['id'] ? 'selected' : '' ?>><?= e($e['nombre']) ?></option><?php endforeach; ?>
         </select></div>
-      <div class="field"><label for="pin">Código de capitán</label>
-        <input id="pin" name="pin" type="password" inputmode="numeric" maxlength="8" required placeholder="Código que te dio el facilitador"></div>
-      <button class="btn btn-primary btn-block">Entrar como capitán</button>
-      <p class="muted center" style="margin:14px 0 0;font-size:.88rem">Solo el capitán registra las respuestas. Los demás integrantes pueden seguir el marcador sin ingresar.</p>
+      <div class="field"><label for="pin">Código del equipo</label>
+        <input id="pin" name="pin" inputmode="numeric" maxlength="8" required placeholder="El que comparte el facilitador" value="<?= e($preC) ?>"></div>
+      <div class="field"><label for="alias">Tu alias</label>
+        <input id="alias" name="alias" maxlength="30" required placeholder="Nombre o apodo (sin datos personales)"></div>
+      <button class="btn btn-primary btn-block">Entrar al juego</button>
+      <p class="muted center" style="margin:14px 0 0;font-size:.88rem">Todos participan, cada quien a su ritmo y desde su propio dispositivo: no hay un único líder. Si se te cierra la página, vuelve a entrar con el mismo alias.</p>
     </form>
 
   <?php elseif ($hayAdmins): ?>

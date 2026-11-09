@@ -14,11 +14,11 @@ require __DIR__ . '/includes/header.php';
     <li>Verifica que las respuestas se registren y revisa incidencias.</li>
     <li>Mantiene un tono neutral: mismas reglas para todos los equipos.</li>
     <li>Presenta el marcador final y dirige la reflexión.</li></ul></div>
-  <div class="card"><h3>🧭 Capitán de equipo</h3><ul class="check">
-    <li>Confirma que todos puedan participar y escucha sus propuestas.</li>
-    <li>Organiza la discusión y registra la respuesta final.</li>
-    <li>Envía la respuesta antes del límite de tiempo.</li>
-    <li>Evita respuestas contradictorias: pide consenso antes de confirmar.</li></ul></div>
+  <div class="card"><h3>🧭 Equipo (sin líder único)</h3><ul class="check">
+    <li>Cada integrante entra con el código de su equipo y su alias, y juega a su propio ritmo.</li>
+    <li>Mentes Brillantes, Memoria Extrema, Código Secreto y Desafío Relámpago: el puntaje del equipo es el <strong>promedio</strong> de los puntajes individuales.</li>
+    <li>Creatividad Sin Límites: una propuesta por equipo; todos editan el borrador y se envía cuando la mayoría marca “Listo”.</li>
+    <li>El número de integrantes cuenta: que todos participen sube el promedio del equipo.</li></ul></div>
   <div class="card"><h3>🙌 Participantes</h3><ul class="check">
     <li>Aportan ideas, observan detalles y comparten información con respeto.</li>
     <li>Respetan tiempos, reglas y decisiones del facilitador.</li>
@@ -30,6 +30,14 @@ require __DIR__ . '/includes/header.php';
     <li>Ante un error técnico se usa el método de respaldo y se registra la incidencia.</li></ul></div>
 </div>
 
+<?php if (torneo_activo()): ?>
+<section class="section"><div class="card" style="border-top:5px solid var(--gold)"><h3>🏆 Torneo por enfrentamientos (sistema suizo)</h3><ul class="check">
+  <li>Cada ronda es un reto: los equipos se enfrentan <strong>1 contra 1</strong> y gana el que tenga más puntos en ese reto.</li>
+  <li>Victoria = <strong><?= TORNEO_PTS_VICTORIA ?> puntos de torneo</strong> · empate = <?= TORNEO_PTS_EMPATE ?> para cada equipo · derrota = <?= TORNEO_PTS_DERROTA ?>.</li>
+  <li>Las rondas siguientes enfrentan a equipos con puntuaciones parecidas y <strong>sin repetir rival</strong> mientras sea posible.</li>
+  <li>La tabla ordena por: puntos de torneo, puntos de pruebas, victorias, enfrentamiento directo, Mentes Brillantes y Creatividad.</li>
+  <li>Los puntos de pruebas (de los retos) se llevan aparte de los puntos de torneo.</li></ul></div></section>
+<?php endif; ?>
 <section class="section"><h2>Puntuación por reto</h2>
 <div class="table-wrap"><table>
   <thead><tr><th>Reto</th><th>Regla</th><th class="num">Máximo</th></tr></thead><tbody>

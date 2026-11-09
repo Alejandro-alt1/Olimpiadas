@@ -23,6 +23,7 @@
   });
 
   // Marcador en vivo
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var tb = document.querySelector('[data-live-scoreboard]');
   if (tb) {
     var api = tb.dataset.api;
@@ -32,8 +33,9 @@
         var html = '';
         d.equipos.forEach(function (e) {
           html += '<tr class="' + (e.pos <= 3 ? 'top top-' + e.pos : '') + '"><td class="pos">' + e.medalla + '</td>' +
-            '<td><span class="team"><i class="dot" style="--c:' + e.color + '"></i>' + e.nombre +
+            '<td><span class="team"><i class="dot" style="--c:' + e.color + '"></i>' + esc(e.nombre) +
             (e.empate ? ' <small class="tag">empate</small>' : '') + '</span></td>';
+          if (d.torneo) html += '<td class="num total">' + e.tp + '</td><td class="num">' + e.g + '-' + e.e + '-' + e.p + '</td>';
           d.retos.forEach(function (r) { html += '<td class="num">' + (e.puntos[r] || 0) + '</td>'; });
           html += '<td class="num total">' + e.total + '</td></tr>';
         });

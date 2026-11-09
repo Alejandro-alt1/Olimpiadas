@@ -27,7 +27,7 @@ require __DIR__ . '/includes/header.php';
     <?php if ($top): ?>
     <div class="mini-board">
       <?php foreach ($top as $t): ?>
-        <div class="mini-row"><span><?= medalla($t['pos']) ?></span><i class="dot" style="--c:<?= e($t['color']) ?>"></i><?= e($t['nombre']) ?><b><?= (int)$t['total'] ?> pts</b></div>
+        <div class="mini-row"><span><?= medalla($t['pos']) ?></span><i class="dot" style="--c:<?= e($t['color']) ?>"></i><?= e($t['nombre']) ?><b><?= torneo_activo() ? (int)$t['tp'] . ' PT' : (int)$t['total'] . ' pts' ?></b></div>
       <?php endforeach; ?>
     </div>
     <?php endif; ?>
