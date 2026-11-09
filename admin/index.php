@@ -26,7 +26,7 @@ if (is_post()) {
         bitacora('sistema', $nuevo === '1' ? 'Marcador visible para todos' : 'Marcador oculto para equipos');
         flash($nuevo === '1' ? 'El marcador ahora es visible.' : 'El marcador quedó oculto para los equipos.');
     }
-    redirect('admin/index.php');
+    redirect(($_POST['volver'] ?? '') === 'torneo' ? 'admin/torneo.php' : 'admin/index.php');
 }
 
 $retos = retos_all();
@@ -38,6 +38,8 @@ require __DIR__ . '/../includes/header.php';
   <p>Abre y cierra los retos, controla el marcador y administra equipos, puntos e incidencias.</p></div>
 
 <div class="admin-grid" style="margin-bottom:30px">
+  <a class="admin-link" href="<?= url('admin/torneo.php') ?>" style="border-color:var(--gold)"><b>🏆 Torneo suizo</b><span>Rondas, enfrentamientos y puntos de torneo (3 / 1 / 0).</span></a>
+  <a class="admin-link" href="<?= url('admin/participantes.php') ?>" style="border-color:var(--gold)"><b>🙋 Participantes</b><span>Quién está conectado, puntaje individual y cómo se promedia.</span></a>
   <a class="admin-link" href="<?= url('admin/equipos.php') ?>"><b>👥 Equipos</b><span>Altas, capitanes, integrantes y códigos de acceso.</span></a>
   <a class="admin-link" href="<?= url('admin/puntos.php') ?>"><b>🏅 Puntos</b><span>Registro de puntos por reto (validado en servidor).</span></a>
   <a class="admin-link" href="<?= url('admin/bitacora.php') ?>"><b>📒 Bitácora</b><span>Incidencias, decisiones y cambios auditados.</span></a>

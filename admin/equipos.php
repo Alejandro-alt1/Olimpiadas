@@ -17,6 +17,7 @@ if (is_post()) {
                     ->execute([trim($d['nombre']), color_valido($d['color'] ?? ''), trim($d['capitan'] ?? ''), $miembros,
                                substr($pin, 0, 8), isset($d['activo']) ? 1 : 0, (int)$id]);
             }
+            recalcular_todos();   // el número de integrantes cambia el promedio
             bitacora('sistema', 'Equipos actualizados');
             flash('Equipos guardados.');
         } elseif ($a === 'nuevo') {
@@ -28,6 +29,11 @@ if (is_post()) {
             db()->prepare('INSERT INTO puntuaciones (equipo_id, reto_id, puntos) SELECT ?, id, 0 FROM retos')->execute([$nid]);
             bitacora('sistema', 'Equipo creado: ' . $n, null, null, $nid);
             flash('Equipo creado.');
+        } elseif ($a === 'base') {
+            config_set('promedio_base', ($_POST['base'] ?? '') === 'registrados' ? 'registrados' : 'declarados');
+            recalcular_todos();
+            bitacora('sistema', 'Base del promedio: ' . config_get('promedio_base'));
+            flash('Base del promedio actualizada y puntos recalculados.');
         } elseif ($a === 'regenerar') {
             foreach (db()->query('SELECT id FROM equipos')->fetchAll() as $e)
                 db()->prepare('UPDATE equipos SET pin=? WHERE id=?')->execute([pin_aleatorio(), $e['id']]);
@@ -46,19 +52,19 @@ $titulo = 'Equipos'; $pagina = 'admin';
 require __DIR__ . '/../includes/header.php';
 ?>
 <p><a href="<?= url('admin/index.php') ?>">← Panel</a></p>
-<div class="page-head"><div class="eyebrow">Administración</div><h1>Equipos y capitanes</h1>
+<div class="page-head"><div class="eyebrow">Administración</div><h1>Equipos</h1>
   <p>Recomendado: 10 equipos de 5 a 10 personas (50–100 participantes). Participantes actuales: <strong><?= $totalPers ?></strong>.
-  Entrega a cada capitán su código de acceso.</p></div>
+  Comparte con todos los integrantes de cada equipo el código de su equipo (ya no hay capitán). El número de integrantes declarado se usa para promediar: mantenlo correcto.</p></div>
 
 <form method="post">
   <?= csrf_field() ?><input type="hidden" name="accion" value="guardar">
   <div class="table-wrap"><table>
-    <thead><tr><th>Equipo</th><th>Color</th><th>Capitán</th><th class="num">Integrantes</th><th class="num">Código</th><th class="num">Activo</th></tr></thead><tbody>
+    <thead><tr><th>Equipo</th><th>Color</th><th>Referencia (opcional)</th><th class="num">Integrantes</th><th class="num">Código del equipo</th><th class="num">Activo</th></tr></thead><tbody>
     <?php foreach ($equipos as $e): $i = (int)$e['id']; ?>
       <tr>
         <td><input name="eq[<?= $i ?>][nombre]" value="<?= e($e['nombre']) ?>" required maxlength="60" aria-label="Nombre"></td>
         <td><input type="color" name="eq[<?= $i ?>][color]" value="<?= e($e['color']) ?>" aria-label="Color"></td>
-        <td><input name="eq[<?= $i ?>][capitan]" value="<?= e($e['capitan']) ?>" maxlength="80" placeholder="Nombre del capitán" aria-label="Capitán"></td>
+        <td><input name="eq[<?= $i ?>][capitan]" value="<?= e($e['capitan']) ?>" maxlength="80" placeholder="Contacto o responsable (opcional)" aria-label="Referencia"></td>
         <td class="num"><input type="number" min="1" max="10" name="eq[<?= $i ?>][miembros]" value="<?= (int)$e['miembros'] ?>" style="width:80px" aria-label="Integrantes"></td>
         <td class="num"><input name="eq[<?= $i ?>][pin]" value="<?= e($e['pin']) ?>" inputmode="numeric" maxlength="8" style="width:100px;text-align:center;font-weight:800" aria-label="Código"></td>
         <td class="num"><input type="checkbox" name="eq[<?= $i ?>][activo]" <?= $e['activo'] ? 'checked' : '' ?> style="width:20px;height:20px" aria-label="Activo"></td>
@@ -77,4 +83,11 @@ require __DIR__ . '/../includes/header.php';
     <form method="post" data-confirm="Esto invalida los códigos actuales. ¿Continuar?"><?= csrf_field() ?><input type="hidden" name="accion" value="regenerar">
       <button class="btn btn-gold">Regenerar códigos</button></form></div>
 </div>
+<div class="card" style="margin-top:20px"><h3>📊 Base del promedio</h3>
+  <p class="muted">El puntaje del equipo en cada reto = suma de los puntajes individuales ÷ base. Cambiarlo recalcula todo el marcador.</p>
+  <form method="post"><?= csrf_field() ?><input type="hidden" name="accion" value="base">
+    <?php $base = config_get('promedio_base', 'declarados'); ?>
+    <label style="font-weight:600"><input type="radio" name="base" value="declarados" <?= $base === 'declarados' ? 'checked' : '' ?> style="width:auto"> <strong>Integrantes declarados</strong> (el mayor entre lo declarado y los registrados): quien no entra cuenta con 0, así conviene que todos participen.</label><br><br>
+    <label style="font-weight:600"><input type="radio" name="base" value="registrados" <?= $base === 'registrados' ? 'checked' : '' ?> style="width:auto"> <strong>Solo registrados</strong>: se promedia únicamente entre quienes entraron.</label><br><br>
+    <button class="btn btn-gold btn-sm">Guardar base</button></form></div>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

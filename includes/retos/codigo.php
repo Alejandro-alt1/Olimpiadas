@@ -1,58 +1,61 @@
 <?php
-function codigo_estado(int $eq): array {
+/* Código Secreto: cada persona resuelve los 3 acertijos a su ritmo. El equipo se puntúa con el promedio. */
+function codigo_estado(int $pid): array {
     $s = db()->prepare('SELECT a.*, COALESCE(ic.resuelto,0) resuelto, COALESCE(ic.pista_usada,0) pista_usada,
                                COALESCE(ic.intentos,0) intentos, COALESCE(ic.puntos,0) puntos
-                        FROM acertijos a LEFT JOIN intentos_codigo ic ON ic.acertijo_id = a.id AND ic.equipo_id = ?
+                        FROM acertijos a LEFT JOIN intentos_codigo ic ON ic.acertijo_id = a.id AND ic.participante_id = ?
                         ORDER BY a.orden');
-    $s->execute([$eq]);
+    $s->execute([$pid]);
     return $s->fetchAll();
 }
 function codigo_actual(array $filas): ?array {
     foreach ($filas as $f) if (!$f['resuelto']) return $f;
     return null;
 }
-function codigo_post(array $reto, array $equipo): void {
+function codigo_post(array $reto, array $equipo, array $part): void {
     if (!reto_activo($reto)) { flash('El reto no está en curso.', 'err'); return; }
-    $eq = (int)$equipo['id'];
-    $act = codigo_actual(codigo_estado($eq));
+    $pid = (int)$part['id']; $eq = (int)$part['equipo_id'];
+    $act = codigo_actual(codigo_estado($pid));
     if (!$act || (int)$act['id'] !== (int)($_POST['acertijo_id'] ?? 0)) { flash('Ese acertijo no es el actual.', 'err'); return; }
     $ac = (int)$act['id'];
-    db()->prepare('INSERT IGNORE INTO intentos_codigo (equipo_id, acertijo_id) VALUES (?,?)')->execute([$eq, $ac]);
+    db()->prepare('INSERT IGNORE INTO intentos_codigo (participante_id, acertijo_id, equipo_id) VALUES (?,?,?)')->execute([$pid, $ac, $eq]);
 
     if (($_POST['accion'] ?? '') === 'pista') {
-        db()->prepare('UPDATE intentos_codigo SET pista_usada = 1 WHERE equipo_id = ? AND acertijo_id = ? AND resuelto = 0')->execute([$eq, $ac]);
+        db()->prepare('UPDATE intentos_codigo SET pista_usada = 1 WHERE participante_id = ? AND acertijo_id = ? AND resuelto = 0')->execute([$pid, $ac]);
         flash('💡 Pista activada: este acertijo valdrá 20 puntos en lugar de 30.');
         return;
     }
-
     // Anti fuerza bruta: mínimo 2 segundos entre intentos
-    $q = db()->prepare('SELECT TIMESTAMPDIFF(SECOND, ultimo_intento, NOW()) FROM intentos_codigo WHERE equipo_id = ? AND acertijo_id = ?');
-    $q->execute([$eq, $ac]);
+    $q = db()->prepare('SELECT TIMESTAMPDIFF(SECOND, ultimo_intento, NOW()) FROM intentos_codigo WHERE participante_id = ? AND acertijo_id = ?');
+    $q->execute([$pid, $ac]);
     $desde = $q->fetchColumn();
-    if ($desde !== null && $desde !== false && (int)$desde < 2) { flash('Esperen un par de segundos antes de volver a intentar.', 'err'); return; }
+    if ($desde !== null && $desde !== false && (int)$desde < 2) { flash('Espera un par de segundos antes de volver a intentar.', 'err'); return; }
 
     $intento = norm_texto($_POST['respuesta'] ?? '');
     if ($intento === '') { flash('Escribe una respuesta.', 'err'); return; }
     $validas = array_map('norm_texto', explode('|', $act['respuestas']));
     if (in_array($intento, $validas, true)) {
         $u = db()->prepare('UPDATE intentos_codigo SET resuelto = 1, puntos = IF(pista_usada = 1, 20, 30), intentos = intentos + 1, ultimo_intento = NOW()
-                            WHERE equipo_id = ? AND acertijo_id = ? AND resuelto = 0');
-        $u->execute([$eq, $ac]);
+                            WHERE participante_id = ? AND acertijo_id = ? AND resuelto = 0');
+        $u->execute([$pid, $ac]);
         recalcular_puntos($eq, 3);
         flash('🔓 ¡Cerradura abierta! Se desbloquea el siguiente acertijo.');
     } else {
-        db()->prepare('UPDATE intentos_codigo SET intentos = intentos + 1, ultimo_intento = NOW() WHERE equipo_id = ? AND acertijo_id = ?')->execute([$eq, $ac]);
-        flash('❌ Respuesta incorrecta. Pueden intentarlo de nuevo.', 'err');
+        db()->prepare('UPDATE intentos_codigo SET intentos = intentos + 1, ultimo_intento = NOW() WHERE participante_id = ? AND acertijo_id = ?')->execute([$pid, $ac]);
+        flash('❌ Respuesta incorrecta. Puedes intentarlo de nuevo.', 'err');
     }
 }
-function codigo_render(array $reto, array $equipo): void {
-    $filas = codigo_estado((int)$equipo['id']);
+function codigo_render(array $reto, array $equipo, array $part): void {
+    $filas = codigo_estado((int)$part['id']);
     $act = codigo_actual($filas);
     $c = e($reto['color']);
     $pts = array_sum(array_map(fn($f) => (int)$f['puntos'], $filas));
+    $q = db()->prepare('SELECT puntos FROM puntuaciones WHERE equipo_id = ? AND reto_id = 3'); $q->execute([$equipo['id']]);
+    $eqPts = (int)$q->fetchColumn();
     ?>
     <div class="game" style="--c:<?= $c ?>">
-      <div class="game-top"><span>🔐 Código Secreto · Tus puntos: <strong style="color:var(--gold)"><?= $pts ?></strong></span></div>
+      <div class="game-top"><span>🔐 Código Secreto · Tus puntos: <strong style="color:var(--gold)"><?= $pts ?></strong></span>
+        <span>Promedio de tu equipo: <strong style="color:var(--gold)"><?= $eqPts ?></strong> / <?= (int)$reto['puntos_max'] ?></span></div>
       <div class="locks">
         <?php foreach ($filas as $f):
           $estado = $f['resuelto'] ? 's-ok' : (($act && $act['id'] === $f['id']) ? 's-now' : 's-no'); ?>
@@ -73,7 +76,7 @@ function codigo_render(array $reto, array $equipo): void {
       <?php else: ?>
         <h3 class="q" style="margin-top:0"><?= e($act['enunciado']) ?></h3>
         <form method="post"><?= csrf_field() ?><input type="hidden" name="acertijo_id" value="<?= (int)$act['id'] ?>">
-          <div class="field"><label for="resp">Respuesta del equipo</label>
+          <div class="field"><label for="resp">Tu respuesta</label>
             <input id="resp" name="respuesta" autocomplete="off" maxlength="60" placeholder="Escribe la respuesta…"></div>
           <div class="game-actions">
             <button class="btn btn-primary" name="accion" value="probar">🔑 Probar respuesta</button>
@@ -84,7 +87,7 @@ function codigo_render(array $reto, array $equipo): void {
           </div>
           <?php if ($act['pista_usada']): ?><div class="hint">💡 <strong>Pista:</strong> <?= e($act['pista']) ?></div><?php endif; ?>
         </form>
-        <p class="muted" style="margin:16px 0 0;font-size:.88rem">Reglas: no importan mayúsculas, acentos ni artículos (“el”, “un”). Si fallan pueden intentar de nuevo sin descuento. 30 pts por acertijo sin pista · 20 con pista.</p>
+        <p class="muted" style="margin:16px 0 0;font-size:.88rem">Reglas: no importan mayúsculas, acentos ni artículos (“el”, “un”). Si fallas puedes intentar de nuevo sin descuento. 30 pts por acertijo sin pista · 20 con pista.</p>
       <?php endif; ?>
     </div>
     <?php
