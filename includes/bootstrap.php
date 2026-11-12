@@ -2,9 +2,13 @@
 require_once __DIR__ . '/../config.php';
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_set_cookie_params(['httponly' => true, 'samesite' => 'Lax', 'path' => '/']);
+    session_set_cookie_params(['httponly' => true, 'samesite' => 'Lax', 'path' => '/', 'secure' => !empty($_SERVER['HTTPS'])]);
     session_start();
 }
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/torneo.php';
+
+// Latido de conexión de la persona (solo escribe cada 8 s como máximo)
+if (!empty($_SESSION['participante_id']) && ($__p = participante_actual())) participante_tocar($__p);

@@ -1,0 +1,45 @@
+OLIMPIADAS VIRTUALES · INSTALACIÓN / ACTUALIZACIÓN EN UBUNTU
+=============================================================
+(Asumiendo Apache + MySQL + PHP ya instalados. Si falta algo:)
+
+  sudo apt update
+  sudo apt install -y apache2 mysql-server php libapache2-mod-php php-mysql php-mbstring php-xml unzip
+  sudo systemctl restart apache2
+
+1) SUBIR LOS ARCHIVOS (con Termius/SFTP) a /var/www/olimpiadas  y dar permisos:
+  sudo chown -R www-data:www-data /var/www/olimpiadas/uploads
+  sudo chmod 755 /var/www/olimpiadas/uploads
+
+2) APACHE: el VirtualHost debe permitir .htaccess (protege includes/ y uploads/):
+  <VirtualHost *:80>
+      ServerName tu-dominio.com
+      DocumentRoot /var/www/olimpiadas
+      <Directory /var/www/olimpiadas>
+          AllowOverride All
+          Require all granted
+      </Directory>
+  </VirtualHost>
+  sudo a2ensite olimpiadas && sudo systemctl reload apache2
+  Comprueba:  curl -I http://tu-dominio.com/includes/helpers.php   -> debe responder 403
+
+3) BASE DE DATOS (MySQL Workbench o consola):
+  - Instalación nueva: ejecutar en orden database.sql, database_fase2.sql, database_fase3.sql y database_fase4.sql
+  - Ya tienes hasta la fase 3: ejecuta SOLO database_fase4.sql (agrega el torneo; no borra nada anterior).
+  - database_fase3.sql borra respuestas y participantes de prueba: no lo repitas con el evento en marcha.
+  - Usuario propio (no uses root):
+      CREATE USER 'olimpiadas'@'localhost' IDENTIFIED BY 'UNA_CLAVE_LARGA';
+      GRANT ALL PRIVILEGES ON olimpiadas.* TO 'olimpiadas'@'localhost';
+      FLUSH PRIVILEGES;
+
+4) CONFIGURACIÓN: copia config.local.php.example a config.local.php y pon tus datos
+   (BASE_URL = '' si el dominio apunta directo a la carpeta).
+
+5) HTTPS (necesario para usar el sitio de forma segura desde internet):
+  sudo apt install -y certbot python3-certbot-apache
+  sudo certbot --apache -d tu-dominio.com
+
+6) ENTRA como facilitador en /login.php?rol=facilitador (la primera vez crea la cuenta).
+
+CARGA CON ~100 PERSONAS
+  - Cada persona juega a su ritmo y la página casi no consulta al servidor en segundo plano, así que
+    un servidor pequeño suele bastar. Aun así, haz un ensayo con varios celulares antes del evento.

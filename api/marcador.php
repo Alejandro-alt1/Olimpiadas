@@ -14,7 +14,8 @@ foreach (ranking() as $f) {
         'pos' => (int)$f['pos'], 'medalla' => medalla((int)$f['pos']), 'empate' => (bool)$f['empate'],
         'nombre' => $f['nombre'], 'color' => $f['color'], 'total' => (int)$f['total'],
         'puntos' => $matriz[$f['id']] ?? new stdClass(),
+        'tp' => (int)$f['tp'], 'g' => (int)$f['g'], 'e' => (int)$f['e'], 'p' => (int)$f['p'],
     ];
 }
-echo json_encode(['visible' => true, 'retos' => array_map('intval', $retos), 'equipos' => $out, 'hora' => date('H:i:s')],
+echo json_encode(['visible' => true, 'torneo' => torneo_activo(), 'retos' => array_map('intval', $retos), 'equipos' => $out, 'hora' => date('H:i:s')],
     JSON_UNESCAPED_UNICODE);

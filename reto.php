@@ -5,25 +5,29 @@ $reto = reto_por_slug($_GET['r'] ?? '');
 if (!$reto) { http_response_code(404); flash('Reto no encontrado.', 'err'); redirect('retos.php'); }
 
 $equipo = team_actual();
+$yo = participante_actual();
 $modulos = ['mentes-brillantes' => 'mentes', 'memoria-extrema' => 'memoria', 'codigo-secreto' => 'codigo',
             'creatividad-sin-limites' => 'creatividad', 'desafio-relampago' => 'relampago'];
 $modulo = $modulos[$reto['slug']] ?? null;
 if ($modulo) require __DIR__ . '/includes/retos/' . $modulo . '.php';
 
-// Procesa la respuesta del capitán (patrón Post/Redirect/Get: recargar no duplica nada)
+// Procesa la acción de la persona (Post/Redirect/Get: recargar no duplica nada)
 if (is_post() && $modulo) {
-    if (!$equipo) { flash('Ingresa como capitán para responder.', 'err'); redirect('login.php'); }
-    call_user_func($modulo . '_post', $reto, $equipo);
+    if (!$equipo || !$yo) { flash('Ingresa con tu equipo para participar.', 'err'); redirect('login.php'); }
+    call_user_func($modulo . '_post', $reto, $equipo, $yo);
     redirect('reto.php?r=' . $reto['slug']);
 }
 
-$rest  = reto_restante($reto);
-$miPts = null;
+$rest = reto_restante($reto);
+$ind = $yo ? puntos_individuales_todos((int)$yo['id'], (int)$equipo['id']) : [];
+$miPts = $ind[(int)$reto['id']] ?? 0;
+$teamPts = 0;
 if ($equipo) {
     $s = db()->prepare('SELECT puntos FROM puntuaciones WHERE equipo_id=? AND reto_id=?');
     $s->execute([$equipo['id'], $reto['id']]);
-    $miPts = (int)$s->fetchColumn();
+    $teamPts = (int)$s->fetchColumn();
 }
+$esEquipo = (int)$reto['id'] === 4;   // Creatividad se puntúa por equipo
 $titulo = $reto['nombre']; $pagina = 'retos';
 require __DIR__ . '/includes/header.php';
 ?>
@@ -44,6 +48,15 @@ require __DIR__ . '/includes/header.php';
   </div>
 </div>
 
+<?php if ($equipo && torneo_activo() && ($pm = torneo_partido_equipo((int)$equipo['id'], (int)$reto['id']))): ?>
+<div class="match mine" style="margin-bottom:22px">
+  <div class="tm"><i class="dot" style="--c:<?= e($equipo['color']) ?>"></i><?= e($equipo['nombre']) ?></div>
+  <div class="sc"><?= $pm['mi_pts'] === null ? '–' : (int)$pm['mi_pts'] ?> : <?= $pm['su_pts'] === null ? '–' : (int)$pm['su_pts'] ?></div>
+  <div class="tm r"><?= e($pm['rival']) ?><i class="dot" style="--c:<?= e($pm['rival_color']) ?>"></i></div>
+  <div class="res">🏆 Ronda <?= (int)$pm['numero'] ?> del torneo: tu equipo se enfrenta a <strong><?= e($pm['rival']) ?></strong> en este reto ·
+    <?= $pm['resultado'] === 'victoria' ? '¡Ganaron! +' . TORNEO_PTS_VICTORIA : ($pm['resultado'] === 'empate' ? 'Empate +' . TORNEO_PTS_EMPATE : ($pm['resultado'] === 'derrota' ? 'Derrota' : 'gana el equipo con más puntos')) ?></div>
+</div>
+<?php endif; ?>
 <?php $jugando = $equipo && reto_activo($reto); ?>
 <?php if (!$jugando): ?>
 <div class="grid g2">
@@ -55,11 +68,14 @@ require __DIR__ . '/includes/header.php';
   <div class="card">
     <h3>🏅 Puntuación</h3>
     <p><?= e($reto['regla_puntos']) ?></p>
-    <p class="muted">Máximo del reto: <strong style="color:var(--gold)"><?= (int)$reto['puntos_max'] ?> puntos</strong></p>
+    <p class="muted"><?= $esEquipo ? 'Todo el equipo recibe el mismo puntaje.' : 'Cada integrante suma su puntaje individual (máx. ' . (int)$reto['puntos_max'] . ') y el equipo recibe el <strong>promedio</strong>.' ?></p>
     <h3>🌟 Habilidades observables</h3><p><?= e($reto['habilidades']) ?></p>
     <?php if ($equipo): ?>
-      <h3>Tu puntaje en este reto</h3>
-      <div class="score-pill" style="--c:<?= e($equipo['color']) ?>"><b><?= $miPts ?></b><span class="muted">de <?= (int)$reto['puntos_max'] ?> pts</span></div>
+      <h3>Tus puntos</h3>
+      <div class="team-score">
+        <?php if (!$esEquipo): ?><div class="score-pill" style="--c:<?= e($equipo['color']) ?>"><b><?= $miPts ?></b><span class="muted">tú · de <?= (int)$reto['puntos_max'] ?></span></div><?php endif; ?>
+        <div class="score-pill" style="--c:<?= e($equipo['color']) ?>"><b><?= $teamPts ?></b><span class="muted"><?= $esEquipo ? 'tu equipo' : 'promedio del equipo' ?></span></div>
+      </div>
     <?php endif; ?>
   </div>
 </div>
@@ -68,13 +84,14 @@ require __DIR__ . '/includes/header.php';
 <section class="section">
   <h2>Área de juego</h2>
   <?php if (!$equipo && admin_actual()): ?>
-    <div class="placeholder">🎙 Estás como facilitador. Para probar el reto, ingresa como capitán desde otra ventana de incógnito (el panel permite reiniciar los datos de prueba).</div>
+    <div class="placeholder">🎙 Estás como facilitador. Para probar el reto, ingresa como participante desde otra ventana de incógnito (el panel permite reiniciar los datos de prueba).</div>
   <?php elseif (!$equipo): ?>
-    <div class="placeholder"><p><strong>Ingresa como capitán</strong> para participar en este reto.</p><a class="btn btn-primary" href="<?= url('login.php') ?>">Ingresar</a></div>
+    <div class="placeholder"><p><strong>Ingresa con tu equipo</strong> para participar en este reto.</p><a class="btn btn-primary" href="<?= url('login.php') ?>">Ingresar</a></div>
   <?php elseif ($reto['estado'] === 'pendiente'): ?>
     <div class="placeholder" data-autorefresh="8">⏳ El facilitador aún no abre este reto. Esta página se actualizará sola cuando comience.</div>
   <?php elseif ($reto['estado'] === 'cerrado' || !reto_activo($reto)): ?>
-    <div class="placeholder">🔒 Este reto ya finalizó. No se aceptan nuevas respuestas. Tu puntaje: <strong style="color:var(--gold)"><?= (int)$miPts ?> pts</strong>.</div>
-  <?php else: call_user_func($modulo . '_render', $reto, $equipo); endif; ?>
+    <div class="placeholder">🔒 Este reto ya finalizó. No se aceptan nuevas respuestas.<br>
+      <?= $esEquipo ? '' : 'Tu puntaje: <strong style="color:var(--gold)">' . $miPts . ' pts</strong> · ' ?>Equipo: <strong style="color:var(--gold)"><?= $teamPts ?> pts</strong>.</div>
+  <?php else: call_user_func($modulo . '_render', $reto, $equipo, $yo); endif; ?>
 </section>
 <?php require __DIR__ . '/includes/footer.php'; ?>

@@ -1,0 +1,7 @@
+<?php
+// Copia este archivo como config.local.php y ajusta los datos.
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'olimpiadas');
+define('DB_USER', 'olimpiadas');
+define('DB_PASS', 'CAMBIA_ESTA_CLAVE');
+define('BASE_URL', '');   // '' si el dominio apunta directo a esta carpeta
